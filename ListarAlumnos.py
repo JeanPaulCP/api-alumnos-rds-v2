@@ -1,32 +1,41 @@
 import boto3
 import pymysql
 import os
+from botocore.exceptions import ClientError
+
+def get_secret(secret_name):
+    region_name = "us-east-1"
+
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        raise e
+    
+    secret = get_secret_value_response['SecretString']
+    return secret
 
 def lambda_handler(event, context):
-    # Parámetros de conexión (puedes usar Parameter Store o Secrets Manager para mayor seguridad)
     SSM_host = os.environ['DB_HOST']
     user = os.environ['DB_USER']
     SSM_password = os.environ['DB_PASSWORD']
     database = os.environ['DB_NAME']
 
-    # Recuperar los secretos
-    ssm = boto3.client('ssm')
-    response = ssm.get_parameter(
-        Name=SSM_host,
-        WithDecryption=True  # Si es un parámetro seguro
-    )
-    host = response['Parameter']['Value']
-    response = ssm.get_parameter(
-        Name=SSM_password,
-        WithDecryption=True  # Si es un parámetro seguro
-    )
-    password = response['Parameter']['Value']
+    host = get_secret(SSM_host)
+    password = get_secret(SSM_password)
 
     try:
         connection = pymysql.connect(
-            host=host,
+            host=host, #
             user=user,
-            password=password,
+            password=password, #
             db=database,
             connect_timeout=5
         )
